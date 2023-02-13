@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"errors"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
@@ -11,17 +12,22 @@ import (
 	_ "github.com/lib/pq"
 )
 
-type db struct {
+type Store struct {
 	conn *sqlx.DB
 }
 
-func NewDB(connURI string) (*db, error) {
+func NewDB(connURI string) (*Store, error) {
 	conn, err := sqlx.Connect("postgres", connURI)
 	if err != nil {
 		return nil, err
 	}
-	startMigration(conn)
-	return &db{
+	if err := conn.Ping(); err != nil {
+		return nil, err
+	}
+	if err := startMigration(conn); err != nil {
+		return nil, err
+	}
+	return &Store{
 		conn: conn,
 	}, nil
 }
@@ -33,18 +39,20 @@ func startMigration(conn *sqlx.DB) error {
 	}
 
 	m, err := migrate.NewWithDatabaseInstance(
-		"file://migrations",
+		"file://../migrations",
 		"postgres", driver)
 	if err != nil {
 		return err
 	}
-	m.Up()
+	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
+		return err
+	}
 	return nil
 }
 
-func (d *db) getCitiesList(ctx context.Context) ([]models.City, error) {
+func (s *Store) GetCitiesList(ctx context.Context) ([]models.City, error) {
 	var c []models.City
-	if err := d.conn.SelectContext(ctx, c, `
+	if err := s.conn.SelectContext(ctx, c, `
 	SELECT *
 	FROM city
 	`); err != nil {
@@ -53,13 +61,38 @@ func (d *db) getCitiesList(ctx context.Context) ([]models.City, error) {
 	return c, nil
 }
 
-func (d *db) getCarriersList(ctx context.Context) ([]models.Carriers, error) {
+func (s *Store) GetCarriersList(ctx context.Context) ([]models.Carriers, error) {
 	var c []models.Carriers
-	if err := d.conn.SelectContext(ctx, c, `
+	if err := s.conn.SelectContext(ctx, c, `
 	SELECT *
 	FROM carriers
 	`); err != nil {
 		return nil, err
 	}
 	return c, nil
+}
+
+func (s *Store) CreateUser(ctx context.Context, user models.User) (models.User, error) {
+	var us models.User
+	if err := s.conn.GetContext(ctx, &us, `
+	INSERT INTO users(login, password)
+	VALUES ($1, $2)
+	RETURNING id, role;
+	`, user.Login, user.Password); err != nil {
+		return models.User{}, err
+	}
+	us.Login = user.Login
+	return us, nil
+}
+
+func (s *Store) GetUserIDByLogin(ctx context.Context, user models.User) (models.User, error) {
+	var us models.User
+	if err := s.conn.GetContext(ctx, &us, `
+	SELECT *
+	FROM users
+	WHERE login = $1
+	`, user.Login); err != nil {
+		return models.User{}, err
+	}
+	return us, nil
 }
