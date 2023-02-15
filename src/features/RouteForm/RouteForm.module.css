@@ -1,0 +1,26 @@
+
+
+/*.arrow {*/
+
+/*}*/
+
+.wrapper {
+    cursor: pointer;
+    /*background: #ffaa73;*/
+    transition: transform 0.3s;
+}
+
+.wrapper:hover {
+    transform: rotate(180deg);
+    /*background: #53ea93;*/
+}
+/*animation: arrow-spin 1s linear;*/
+
+/*@keyframes wrapper-spi {*/
+/*    from {*/
+/*        transform: rotate(0deg);*/
+/*    }*/
+/*    to {*/
+/*        transform: rotate(180deg);*/
+/*    }*/
+/*}*/
