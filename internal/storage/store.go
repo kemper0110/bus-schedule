@@ -52,7 +52,7 @@ func startMigration(conn *sqlx.DB) error {
 
 func (s *Store) GetCitiesList(ctx context.Context) ([]models.City, error) {
 	var c []models.City
-	if err := s.conn.SelectContext(ctx, c, `
+	if err := s.conn.SelectContext(ctx, &c, `
 	SELECT *
 	FROM city
 	`); err != nil {
@@ -63,7 +63,7 @@ func (s *Store) GetCitiesList(ctx context.Context) ([]models.City, error) {
 
 func (s *Store) GetCarriersList(ctx context.Context) ([]models.Carriers, error) {
 	var c []models.Carriers
-	if err := s.conn.SelectContext(ctx, c, `
+	if err := s.conn.SelectContext(ctx, &c, `
 	SELECT *
 	FROM carriers
 	`); err != nil {
@@ -95,4 +95,18 @@ func (s *Store) GetUserIDByLogin(ctx context.Context, user models.User) (models.
 		return models.User{}, err
 	}
 	return us, nil
+}
+
+func (s *Store) GetRoutes(ctx context.Context, route models.SerchParams) ([]models.MidRoute, error) {
+	var rt []models.SearchRoute
+	if err := s.conn.SelectContext(ctx, &rt, `
+	SELECT mid_route.id, main_id, from_city, to_city, from_time, to_time, price, rating , c.name
+	FROM mid_route
+	INNER JOIN main_route mr on mr.id = mid_route.main_id
+	INNER JOIN carriers c on mr.carrier_id = c.id
+	WHERE from_city =  AND to_city = $2 AND from_time = $3
+	`, route); err != nil {
+		return nil, err
+	}
+	return rt, nil
 }

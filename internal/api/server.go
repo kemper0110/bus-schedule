@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/kemper0110/bus-schedule/internal/models"
@@ -15,6 +16,7 @@ type DBInterface interface {
 	CarrierList(ctx context.Context) ([]models.Carriers, error)
 	SignUp(ctx context.Context, user models.User) (models.Token, error)
 	SignIn(ctx context.Context, user models.User) (models.Token, error)
+	Schedule(ctx context.Context, reqRoute models.SerchParams) (models.MidRoute, error)
 }
 
 type server struct {
@@ -37,12 +39,42 @@ func newServer(db DBInterface) *server {
 }
 
 func (s *server) configureRouter() {
-	s.router.Get("/", s.handlerSearchPage)
+	s.router.Get("/city", s.handlerSearchPage)
 	s.router.Post("/sign-up", s.handleSignUp)
-	s.router.Get("/sign-in/{login}&{password}", s.handleSignIn)
+	s.router.Post("/sign-in", s.handleSignIn)
+	s.router.Get("/schedule", s.handleSchedule)
 }
 
 func (s *server) handlerSearchPage(w http.ResponseWriter, r *http.Request) {
+	citiesDB, err := s.db.CitiesList(r.Context())
+	if err != nil {
+		s.httpError(w, r, 400, err)
+		return
+	}
+
+	s.respond(w, r, 200, citiesDB)
+}
+
+func (s *server) handleSchedule(w http.ResponseWriter, r *http.Request) {
+	var reqRoute models.SerchParams
+	var err error
+	reqRoute.FromCity, err = strconv.Atoi(r.URL.Query().Get("from"))
+	if err != nil {
+		s.httpError(w, r, 400, err)
+		return
+	}
+
+	reqRoute.ToCity, err = strconv.Atoi(r.URL.Query().Get("to"))
+	if err != nil {
+		s.httpError(w, r, 400, err)
+		return
+	}
+
+	reqRoute.FromCity, err = strconv.Atoi(r.URL.Query().Get("date"))
+	if err != nil {
+		s.httpError(w, r, 400, err)
+		return
+	}
 
 }
 
